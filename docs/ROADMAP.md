@@ -15,12 +15,12 @@
 ## V0.2 — Provider + Agent Foundation
 
 Completed:
-- Qwen2.5 14B as the primary local model
+- OpenRouter as the primary provider
 - Configuration-driven provider abstraction
 - Ollama provider
-- OpenRouter provider
 - `openrouter/free` support
-- Local fallback when hosted inference fails
+- Qwen3 8B as the local fallback
+- Automatic fallback when hosted inference fails
 - Planner/engineer/reviewer/debugger/tester routing
 - Improved health and model reporting
 - V0.1 runtime path preserved
