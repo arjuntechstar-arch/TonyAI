@@ -1,37 +1,37 @@
 models:
   router:
-    provider: ollama
-    name: qwen2.5:14b-instruct
+    provider: openrouter
+    name: openrouter/free
     purpose: routing
     keep_alive: 0
   planner:
-    provider: ollama
-    name: qwen2.5:14b-instruct
+    provider: openrouter
+    name: openrouter/free
     purpose: planning
     keep_alive: 0
   engineer:
-    provider: ollama
-    name: qwen2.5:14b-instruct
+    provider: openrouter
+    name: openrouter/free
     purpose: general_engineering
     keep_alive: 0
   reviewer:
-    provider: ollama
-    name: qwen2.5:14b-instruct
+    provider: openrouter
+    name: openrouter/free
     purpose: code_review
     keep_alive: 0
   debugger:
-    provider: ollama
-    name: qwen2.5:14b-instruct
+    provider: openrouter
+    name: openrouter/free
     purpose: debugging
     keep_alive: 0
   tester:
-    provider: ollama
-    name: qwen2.5:14b-instruct
+    provider: openrouter
+    name: openrouter/free
     purpose: test_analysis
     keep_alive: 0
   fallback:
     provider: ollama
-    name: qwen3:4b
+    name: qwen3:8b
     purpose: emergency_local_fallback
     keep_alive: 0
 
