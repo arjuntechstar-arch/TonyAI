@@ -1,0 +1,22 @@
+models:
+  router:
+    name: qwen3:4b
+    purpose: routing
+    keep_alive: 0
+  planner:
+    name: qwen3:4b
+    purpose: planning
+    keep_alive: 0
+  engineer:
+    name: qwen3:8b
+    purpose: general_engineering
+    keep_alive: 0
+  reviewer:
+    name: qwen3:8b
+    purpose: code_review
+    keep_alive: 0
+  heavy_coder:
+    name: qwen3:30b
+    purpose: complex_coding
+    keep_alive: 0
+    enabled: false
