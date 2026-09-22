@@ -20,6 +20,7 @@ class OpenRouterClient:
         self.default_model = os.getenv("OPENROUTER_MODEL", "openrouter/free")
         self.app_url = os.getenv("OPENROUTER_APP_URL", "")
         self.app_name = os.getenv("OPENROUTER_APP_NAME", "TonyAI")
+        self.timeout_seconds = float(os.getenv("OPENROUTER_TIMEOUT_SECONDS", "120"))
 
     def _headers(self) -> dict[str, str]:
         if not self.api_key:
@@ -54,7 +55,12 @@ class OpenRouterClient:
             "temperature": temperature,
         }
 
-        async with httpx.AsyncClient(timeout=600) as client:
+        timeout = httpx.Timeout(
+            self.timeout_seconds,
+            connect=15.0,
+        )
+
+        async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(
                 f"{self.base_url}/chat/completions",
                 headers=self._headers(),
