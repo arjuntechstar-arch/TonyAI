@@ -1,4 +1,8 @@
+import asyncio
 import os
+import time
+import uuid
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
@@ -12,7 +16,7 @@ from .models.ollama_client import OllamaClient
 from .models.openrouter_client import OpenRouterClient
 
 
-app = FastAPI(title="TonyAI Orchestrator", version="0.2.0")
+app = FastAPI(title="TonyAI Orchestrator", version="0.2.1")
 
 ollama = OllamaClient()
 openrouter = OpenRouterClient()
@@ -27,11 +31,67 @@ agents = {
     "tester": CoderAgent(),
 }
 
+task_states: dict[str, dict] = {}
+
 
 class TaskRequest(BaseModel):
     task: str = Field(min_length=1)
     project: str = "default"
     complexity: int = Field(default=5, ge=1, le=10)
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def create_task_state(request: TaskRequest) -> tuple[str, float]:
+    task_id = str(uuid.uuid4())
+    started = time.perf_counter()
+    task_states[task_id] = {
+        "task_id": task_id,
+        "project": request.project,
+        "status": "received",
+        "progress_percent": 0,
+        "current_step": "Task received",
+        "message": "TonyAI accepted the task.",
+        "agent": None,
+        "provider": None,
+        "model": None,
+        "start_time": utc_now(),
+        "end_time": None,
+        "duration_seconds": None,
+        "_started_perf": started,
+        "result": None,
+        "error": None,
+    }
+    return task_id, started
+
+
+def update_task(task_id: str, **changes):
+    state = task_states.get(task_id)
+    if not state:
+        return
+    state.update(changes)
+    state["duration_seconds"] = round(
+        time.perf_counter() - state["_started_perf"], 2
+    )
+
+
+def finish_task(task_id: str, status: str, **changes):
+    state = task_states.get(task_id)
+    if not state:
+        return
+    state.update(changes)
+    state["status"] = status
+    state["end_time"] = utc_now()
+    state["duration_seconds"] = round(
+        time.perf_counter() - state["_started_perf"], 2
+    )
+    state.pop("_started_perf", None)
+
+
+def public_task_state(state: dict) -> dict:
+    return {k: v for k, v in state.items() if not k.startswith("_")}
 
 
 def provider_name() -> str:
@@ -82,6 +142,7 @@ async def health():
             if provider == "openrouter"
             else router.registry.get("fallback")["name"]
         ),
+        "local_fallback": router.registry.get("fallback")["name"],
         "ollama_models": ollama_models,
     }
 
@@ -94,43 +155,86 @@ def models():
     }
 
 
-@app.post("/task")
-async def task(request: TaskRequest):
-    role = router.choose_role(request.task, request.complexity)
+@app.get("/task/{task_id}")
+def task_status(task_id: str):
+    state = task_states.get(task_id)
+    if not state:
+        raise HTTPException(404, "Task not found")
+    return public_task_state(state)
 
+
+async def execute_task(task_id: str, request: TaskRequest):
     try:
-        cfg = router.registry.get(role)
-    except Exception as exc:
-        raise HTTPException(400, str(exc)) from exc
-
-    provider = os.getenv("AI_PROVIDER", cfg.get("provider", "openrouter")).lower()
-
-    try:
-        client = client_for(provider)
-    except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
-
-    model = (
-        os.getenv("OPENROUTER_MODEL", "openrouter/free")
-        if provider == "openrouter"
-        else router.registry.get("fallback")["name"]
-    )
-
-    context = "\n".join(
-        f"[{item['kind']}] {item['content']}"
-        for item in memory.recent(request.project)
-    )
-
-    try:
-        result = await agents[role].run(
-            client,
-            model,
-            request.task,
-            context,
+        update_task(
+            task_id,
+            status="planning",
+            progress_percent=10,
+            current_step="Selecting agent",
+            message="Analyzing the task and selecting the appropriate TonyAI agent.",
         )
-    except Exception as exc:
-        if provider == "openrouter":
+
+        role = router.choose_role(request.task, request.complexity)
+        cfg = router.registry.get(role)
+
+        update_task(
+            task_id,
+            status="routing",
+            progress_percent=20,
+            current_step=f"Agent selected: {role}",
+            message=f"Preparing {role} agent.",
+            agent=role,
+        )
+
+        provider = os.getenv(
+            "AI_PROVIDER",
+            cfg.get("provider", "openrouter"),
+        ).lower()
+        client = client_for(provider)
+
+        model = (
+            os.getenv("OPENROUTER_MODEL", "openrouter/free")
+            if provider == "openrouter"
+            else router.registry.get("fallback")["name"]
+        )
+
+        update_task(
+            task_id,
+            status="executing",
+            progress_percent=30,
+            current_step=f"Calling {provider}",
+            message=f"Running {role} with {model}.",
+            provider=provider,
+            model=model,
+        )
+
+        context = "
+".join(
+            f"[{item['kind']}] {item['content']}"
+            for item in memory.recent(request.project)
+        )
+
+        try:
+            result = await agents[role].run(
+                client,
+                model,
+                request.task,
+                context,
+            )
+        except Exception as exc:
+            if provider != "openrouter":
+                raise
+
             fallback = router.registry.get("fallback")
+            update_task(
+                task_id,
+                status="fallback",
+                progress_percent=55,
+                current_step="Switching to local fallback",
+                message=f"OpenRouter failed. Retrying with {fallback['name']}.",
+                provider="ollama",
+                model=fallback["name"],
+            )
+
             try:
                 result = await agents[role].run(
                     ollama,
@@ -141,24 +245,43 @@ async def task(request: TaskRequest):
                 provider = "ollama"
                 model = fallback["name"]
             except Exception as fallback_exc:
-                raise HTTPException(
-                    502,
+                raise RuntimeError(
                     f"OpenRouter execution failed: {exc}; "
-                    f"local fallback failed: {fallback_exc}",
+                    f"local fallback failed: {fallback_exc}"
                 ) from fallback_exc
-        else:
-            raise HTTPException(
-                502,
-                f"Model execution failed: {exc}",
-            ) from exc
 
-    memory.add(request.project, role, result)
+        update_task(
+            task_id,
+            status="completed",
+            progress_percent=100,
+            current_step="Completed",
+            message="Task execution completed successfully.",
+            provider=provider,
+            model=model,
+            result=result,
+        )
+        memory.add(request.project, role, result)
+
+    except Exception as exc:
+        finish_task(
+            task_id,
+            "failed",
+            progress_percent=100,
+            current_step="Failed",
+            message="TonyAI could not complete the task.",
+            error=str(exc),
+        )
+
+
+@app.post("/task", status_code=202)
+async def task(request: TaskRequest):
+    task_id, _ = create_task_state(request)
+    asyncio.create_task(execute_task(task_id, request))
 
     return {
-        "agent": role,
-        "provider": provider,
-        "model": model,
-        "result": result,
+        "task_id": task_id,
+        "status": "received",
+        "message": "Task accepted. Poll /task/{task_id} for live progress.",
     }
 
 
