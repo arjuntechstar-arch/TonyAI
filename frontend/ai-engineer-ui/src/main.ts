@@ -3,45 +3,57 @@ import { Component } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { HttpClient, provideHttpClient } from "@angular/common/http";
+
 @Component({
   selector: "app-root",
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: ` <main>
     <header>
-      <h1>Local AI Engineer</h1>
-      <span>v0.1 • Ollama + .NET 10 + Python</span>
+      <h1>TonyAI</h1>
+      <span>v0.2 • Ollama / OpenRouter + .NET 10 + Python</span>
     </header>
+
     <section class="panel">
-      <label>Task</label
-      ><textarea
+      <label>Task</label>
+      <textarea
         [(ngModel)]="task"
         placeholder="Create a .NET 10 Employee CRUD API using EF Core and SQL Server"
       ></textarea>
+
       <div class="row">
-        <label
-          >Complexity
+        <label>
+          Complexity
           <input
             type="number"
             min="1"
             max="10"
-            [(ngModel)]="complexity" /></label
-        ><label>Project <input [(ngModel)]="project" /></label
-        ><button (click)="run()" [disabled]="loading">
-          {{ loading ? "Running..." : "Run AI Engineer" }}
+            [(ngModel)]="complexity"
+          />
+        </label>
+
+        <label>
+          Project
+          <input [(ngModel)]="project" />
+        </label>
+
+        <button (click)="run()" [disabled]="loading">
+          {{ loading ? "Running..." : "Run TonyAI" }}
         </button>
       </div>
     </section>
+
     <section class="panel">
       <h2>Agent Activity</h2>
 
       <div *ngIf="loading">
-        <p>⏳ AI Engineer is working...</p>
-        <p>Waiting for the local model...</p>
+        <p>⏳ TonyAI is working...</p>
+        <p>Waiting for the configured AI provider...</p>
       </div>
 
       <div *ngIf="result && !result.error">
         <p><b>Agent:</b> {{ result.agent }}</p>
+        <p><b>Provider:</b> {{ result.provider || "ollama" }}</p>
         <p><b>Model:</b> {{ result.model }}</p>
 
         <h3>Output</h3>
@@ -55,9 +67,10 @@ import { HttpClient, provideHttpClient } from "@angular/common/http";
 
       <p *ngIf="!result && !loading">No task executed yet.</p>
     </section>
+
     <section class="panel">
       <h2>System</h2>
-      <button (click)="health()">Check Ollama</button>
+      <button (click)="health()">Check AI Providers</button>
       <pre>{{ healthResult | json }}</pre>
     </section>
   </main>`,
@@ -126,7 +139,9 @@ export class AppComponent {
   loading = false;
   result: any = null;
   healthResult: any = null;
+
   constructor(private http: HttpClient) {}
+
   run() {
     this.loading = true;
     this.result = null;
@@ -139,14 +154,12 @@ export class AppComponent {
       })
       .subscribe({
         next: (value) => {
-          console.log("AI ENGINEER RESPONSE:", value);
-
+          console.log("TONYAI RESPONSE:", value);
           this.result = value;
           this.loading = false;
         },
-
         error: (err) => {
-          console.error("AI ENGINEER ERROR:", err);
+          console.error("TONYAI ERROR:", err);
 
           this.result = {
             error:
@@ -160,12 +173,25 @@ export class AppComponent {
         },
       });
   }
+
   health() {
     this.http
       .get<any>("http://localhost:5000/api/health")
-      .subscribe((v) => (this.healthResult = v));
+      .subscribe({
+        next: (value) => (this.healthResult = value),
+        error: (err) => {
+          this.healthResult = {
+            error:
+              err.error?.detail ||
+              err.error?.message ||
+              err.message ||
+              "Unable to reach the gateway",
+          };
+        },
+      });
   }
 }
-bootstrapApplication(AppComponent, { providers: [provideHttpClient()] }).catch(
-  console.error,
-);
+
+bootstrapApplication(AppComponent, {
+  providers: [provideHttpClient()],
+}).catch(console.error);
