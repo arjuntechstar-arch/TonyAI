@@ -250,9 +250,9 @@ async def execute_task(task_id: str, request: TaskRequest):
                     f"local fallback failed: {fallback_exc}"
                 ) from fallback_exc
 
-        update_task(
+        finish_task(
             task_id,
-            status="completed",
+            "completed",
             progress_percent=100,
             current_step="Completed",
             message="Task execution completed successfully.",
