@@ -35,7 +35,7 @@ class TaskRequest(BaseModel):
 
 
 def provider_name() -> str:
-    return os.getenv("AI_PROVIDER", "ollama").lower()
+    return os.getenv("AI_PROVIDER", "openrouter").lower()
 
 
 def client_for(provider: str):
@@ -44,7 +44,7 @@ def client_for(provider: str):
     if provider == "ollama":
         return ollama
     raise ValueError(
-        f"Unsupported AI_PROVIDER '{provider}'. Use 'ollama' or 'openrouter'."
+        f"Unsupported AI_PROVIDER '{provider}'. Use 'openrouter' or 'ollama'."
     )
 
 
@@ -80,7 +80,7 @@ async def health():
         "primary_model": (
             os.getenv("OPENROUTER_MODEL", "openrouter/free")
             if provider == "openrouter"
-            else "qwen2.5:14b-instruct"
+            else router.registry.get("fallback")["name"]
         ),
         "ollama_models": ollama_models,
     }
@@ -103,7 +103,7 @@ async def task(request: TaskRequest):
     except Exception as exc:
         raise HTTPException(400, str(exc)) from exc
 
-    provider = os.getenv("AI_PROVIDER", cfg.get("provider", "ollama")).lower()
+    provider = os.getenv("AI_PROVIDER", cfg.get("provider", "openrouter")).lower()
 
     try:
         client = client_for(provider)
@@ -113,7 +113,7 @@ async def task(request: TaskRequest):
     model = (
         os.getenv("OPENROUTER_MODEL", "openrouter/free")
         if provider == "openrouter"
-        else cfg["name"]
+        else router.registry.get("fallback")["name"]
     )
 
     context = "\n".join(
