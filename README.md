@@ -7,33 +7,25 @@ TonyAI uses:
 - .NET 10 Gateway
 - Python FastAPI Orchestrator
 - Configuration-driven model routing
-- Ollama local inference
-- Optional OpenRouter hosted inference
+- OpenRouter hosted inference as the primary provider
+- Ollama with Qwen3 8B as the local fallback
 - SQLite project memory
 
 ## V0.2 model strategy
 
-The default local engineering model is **Qwen2.5 14B Instruct**:
-`qwen2.5:14b-instruct`
+TonyAI uses a hosted-first strategy:
 
-The Ollama model is about 9 GB in the default Q4_K_M build. A 32 GB RAM machine can run it, although CPU-only inference will be slower than GPU inference.
+**Primary:** OpenRouter `openrouter/free`
 
-The small `qwen3:4b` model is retained as an emergency local fallback when OpenRouter is enabled and hosted inference fails.
+**Local fallback:** Ollama `qwen3:8b`
+
+The local fallback is intentionally kept at 8B because this project targets a Windows machine with about 32 GB RAM and integrated graphics. It avoids requiring a larger local model for normal operation.
+
+TonyAI does not require Qwen2.5 14B or Qwen3 4B.
 
 ## Providers
 
-### Local Ollama (default)
-
-No API key is required.
-
-```powershell
-$env:AI_PROVIDER="ollama"
-```
-
-### OpenRouter (optional)
-
-OpenRouter uses its OpenAI-compatible API. TonyAI defaults to:
-`openrouter/free`
+### OpenRouter (primary)
 
 Set:
 
@@ -50,7 +42,23 @@ $env:OPENROUTER_APP_NAME="TonyAI"
 $env:OPENROUTER_APP_URL="http://localhost:4200"
 ```
 
-If OpenRouter fails, TonyAI attempts the local `qwen3:4b` fallback.
+If OpenRouter fails, TonyAI automatically attempts the local `qwen3:8b` fallback.
+
+### Local Ollama fallback
+
+Install only:
+
+```powershell
+ollama pull qwen3:8b
+```
+
+You can force local-only mode when needed:
+
+```powershell
+$env:AI_PROVIDER="ollama"
+```
+
+In local-only mode TonyAI uses `qwen3:8b`.
 
 ## Prerequisites
 
@@ -71,8 +79,7 @@ From the repository root:
 Or manually:
 
 ```powershell
-ollama pull qwen2.5:14b-instruct
-ollama pull qwen3:4b
+ollama pull qwen3:8b
 
 cd orchestrator
 python -m venv .venv
@@ -125,25 +132,15 @@ $body = '{"task":"Say hello in one sentence","project":"test","complexity":1}'
 Invoke-RestMethod -Uri "http://127.0.0.1:8100/task" -Method Post -ContentType "application/json" -Body $body
 ```
 
-## Important V0.1 fixes preserved
-
-V0.2 keeps the V0.1 working path intact:
-- FastAPI orchestrator remains on port 8100.
-- .NET gateway remains the UI boundary.
-- Angular continues to call the gateway rather than Ollama directly.
-- Existing SQLite memory remains in place.
-- Existing CORS behavior remains unchanged.
-- Existing approval-oriented tool policy remains documented.
-- No Docker requirement was introduced.
-
 ## Current V0.2 scope
 
 Implemented:
-- Qwen2.5 14B primary local model
+- OpenRouter as the primary provider
+- `openrouter/free` support
+- Ollama provider with Qwen3 8B local fallback
 - Provider abstraction for Ollama/OpenRouter
-- OpenRouter free-model router support
 - OpenRouter health detection
-- Local fallback when hosted inference fails
+- Automatic local fallback when hosted inference fails
 - Planner/engineer/reviewer/debugger/tester routing
 - Improved health/model information
 
