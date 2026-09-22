@@ -44,6 +44,10 @@ $env:OPENROUTER_APP_URL="http://localhost:4200"
 
 If OpenRouter fails, TonyAI automatically attempts the local `qwen3:8b` fallback.
 
+### Task progress
+
+TonyAI now returns a task ID immediately and the UI polls task status while the agent runs. Activity includes current step, approximate progress percentage, agent, provider, model, start time, end time, and duration. OpenRouter requests use a 120-second timeout before the local Qwen3 8B fallback is attempted.
+
 ### Local Ollama fallback
 
 Install only:
@@ -141,6 +145,8 @@ Implemented:
 - Provider abstraction for Ollama/OpenRouter
 - OpenRouter health detection
 - Automatic local fallback when hosted inference fails
+- Live task progress with start/end time and duration
+- Asynchronous task execution so the gateway does not wait on long model requests
 - Planner/engineer/reviewer/debugger/tester routing
 - Improved health/model information
 
