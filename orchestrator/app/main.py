@@ -207,8 +207,7 @@ async def execute_task(task_id: str, request: TaskRequest):
             model=model,
         )
 
-        context = "
-".join(
+        context = "\n".join(
             f"[{item['kind']}] {item['content']}"
             for item in memory.recent(request.project)
         )
