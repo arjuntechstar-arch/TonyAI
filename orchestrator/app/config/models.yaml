@@ -1,22 +1,43 @@
 models:
   router:
-    name: qwen3:4b
+    provider: ollama
+    name: qwen2.5:14b-instruct
     purpose: routing
     keep_alive: 0
   planner:
-    name: qwen3:4b
+    provider: ollama
+    name: qwen2.5:14b-instruct
     purpose: planning
     keep_alive: 0
   engineer:
-    name: qwen3:8b
+    provider: ollama
+    name: qwen2.5:14b-instruct
     purpose: general_engineering
     keep_alive: 0
   reviewer:
-    name: qwen3:8b
+    provider: ollama
+    name: qwen2.5:14b-instruct
     purpose: code_review
     keep_alive: 0
-  heavy_coder:
-    name: qwen3:30b
-    purpose: complex_coding
+  debugger:
+    provider: ollama
+    name: qwen2.5:14b-instruct
+    purpose: debugging
     keep_alive: 0
-    enabled: false
+  tester:
+    provider: ollama
+    name: qwen2.5:14b-instruct
+    purpose: test_analysis
+    keep_alive: 0
+  fallback:
+    provider: ollama
+    name: qwen3:4b
+    purpose: emergency_local_fallback
+    keep_alive: 0
+
+provider_defaults:
+  ollama:
+    base_url: http://127.0.0.1:11434
+  openrouter:
+    base_url: https://openrouter.ai/api/v1
+    model: openrouter/free
